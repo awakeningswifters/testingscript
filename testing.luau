@@ -1,36 +1,31 @@
--- leaked by laspard
-
--- === RIVALS ANTICHEAT DISABLER (Runs First) ===
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 if game.GameId ~= 6035872082 then
     return
 end
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
-repeat task.wait() until LocalPlayer
+repeat
+    task.wait()
+until LocalPlayer
 print("Rivals Anticheat Disabler executed!")
-
 local success, err = pcall(function()
     assert(getgc, "executor missing required function getgc")
-    assert(debug and debug.info, "executor missing required function debug.info")
+    assert(debug and debug.info, "executor missing required function debug.info (somehow)")
     assert(hookfunction, "executor missing required function hookfunction")
     assert(getconnections, "executor missing required function getconnections")
     assert(newcclosure, "executor missing required function newcclosure")
-
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LogService = game:GetService("LogService")
     local ScriptContext = game:GetService("ScriptContext")
-
-    -- Hang AnalyticsPipeline functions
     task.spawn(function()
         local hooked = 0
         for _, v in pairs(getgc(true)) do
             if typeof(v) == "function" then
-                local ok, src = pcall(debug.info, v, "s")
+                local ok, src = pcall(function()
+                    return debug.info(v, "s")
+                end)
                 if ok and type(src) == "string" and string.find(src, "AnalyticsPipelineController") then
                     hooked += 1
                     local oldfn
@@ -40,10 +35,8 @@ local success, err = pcall(function()
                 end
             end
         end
-        print("Hanged " .. hooked .. " analytics functions")
+        print("Hanged " .. hooked .. " functions")
     end)
-
-    -- Hook RemoteEvent
     task.spawn(function()
         local ok, remote = pcall(function()
             return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AnalyticsPipeline"):WaitForChild("RemoteEvent")
@@ -53,7 +46,8 @@ local success, err = pcall(function()
             for _, conn in pairs(getconnections(remote.OnClientEvent)) do
                 if conn and conn.Function then
                     if pcall(function()
-                        hookfunction(conn.Function, newcclosure(function(...) end))
+                        hookfunction(conn.Function, newcclosure(function(...)
+                        end))
                     end) then 
                         hooked += 1
                     end
@@ -62,14 +56,13 @@ local success, err = pcall(function()
             print("Hooked " .. hooked .. " anticheat remotes")
         end
     end)
-
-    -- Block LogService
     task.spawn(function()
         local hooked = 0
         for _, conn in pairs(getconnections(LogService.MessageOut)) do
             if conn and conn.Function then
                 if pcall(function()
-                    hookfunction(conn.Function, newcclosure(function(...) end))
+                    hookfunction(conn.Function, newcclosure(function(...)
+                    end))
                 end) then
                     hooked += 1
                 end
@@ -77,737 +70,123 @@ local success, err = pcall(function()
         end
         print("Hooked " .. hooked .. " MessageOut connections")
     end)
-
-    -- Disable ScriptContext Errors
     task.spawn(function()
         local hooked = 0
         for _, conn in ipairs(getconnections(ScriptContext.Error)) do
-            if pcall(conn.Disable, conn) then
+            if pcall(function()
+                conn:Disable()
+            end) then
                 hooked += 1
             end
         end
-        print("Disabled " .. hooked .. " error connections")
+        print("Hooked " .. hooked .. " error connections")
         pcall(function()
-            hookfunction(ScriptContext.Error.Connect, newcclosure(function(...) return nil end))
+            hookfunction(ScriptContext.Error.Connect, newcclosure(function(...)
+                return nil
+            end))
         end)
     end)
-
-    -- Prevent Kick
     task.spawn(function()
-        local KickNames = {"Kick", "kick"}
+        local KickNames = {
+            "Kick",
+            "kick"
+        }
         for _, name in ipairs(KickNames) do
             local fn = LocalPlayer[name]
-            if typeof(fn) == "function" then
+            if type(fn) == "function" then
                 local oldkick
                 oldkick = hookfunction(fn, newcclosure(function(self, ...)
-                    if self == LocalPlayer then return end
+                    if self == LocalPlayer then
+                        return
+                    end
                     return oldkick(self, ...)
                 end))
             end
         end
     end)
 end)
-
 if not success then
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Rivals Anticheat Disabler",
-        Text = "Error: " .. tostring(err),
-        Duration = 5
+    	Title = "Rivals Anticheat Disabler",
+    	Text = "Error, please check console",
+    	Duration = 5
     })
-    warn("Rivals Anticheat Disabler failed: " .. tostring(err))
+    print("Rivals Anticheat Disabler failed: " .. tostring(err))
 else
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Rivals Anticheat Disabler",
-        Text = "Anticheat disabled successfully!",
-        Duration = 5
+    	Title = "Rivals Anticheat Disabler",
+    	Text = "Successfully disabled anticheat!",
+    	Duration = 5
     })
 end
 
--- === ANTI-KICK BYPASSER ===
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Exunys/Anti-Kick/main/Anti-Kick.lua"))()
+local replicated_storage = game.GetService(game, "ReplicatedStorage");
+local players = game.GetService(game, "Players");
 
--- === MAIN SCRIPT STARTS HERE ===
-local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Debris = game:GetService("Debris")
-local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
 
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/odwmemdw/odwmemdw/refs/heads/main/orionaahah')))()
-local Window = OrionLib:MakeWindow({
-    Name = "SyaseiHub",
-    HidePremium = false,
-    IntroEnabled = false,
-    IntroText = "oh...",
-    SaveConfig = true,
-    ConfigFolder = "oh..."
-})
+local get_players = function() -- this is dumb asf, feel free to modify.
+    local entities = {};
 
-local replicated_storage = game:GetService("ReplicatedStorage")
-local players = game:GetService("Players")
-local camera = workspace.CurrentCamera
-local utility = require(replicated_storage.Modules.Utility)
-
--- === Silent Aim Setup ===
-local aimbotEnabled = false
-local fovRadius = 100
-local fovCircle = Drawing.new("Circle")
-
-fovCircle.Color = Color3.fromRGB(255, 255, 255)
-fovCircle.Thickness = 2
-fovCircle.NumSides = 100
-fovCircle.Filled = false
-fovCircle.Visible = true
-
-local function get_players()
-    local entities = {}
-    for _, child in ipairs(workspace:GetChildren()) do
-        if child:FindFirstChildOfClass("Humanoid") then
-            table.insert(entities, child)
+    for _, child in workspace.GetChildren(workspace) do
+        if child.FindFirstChildOfClass(child, "Humanoid") then
+            table.insert(entities, child);
         elseif child.Name == "HurtEffect" then
-            for _, hurt_player in ipairs(child:GetChildren()) do
-                if hurt_player.ClassName ~= "Highlight" then
-                    table.insert(entities, hurt_player)
+            for _, hurt_player in child.GetChildren(child) do
+                if (hurt_player.ClassName ~= "Highlight") then
+                    table.insert(entities, hurt_player);
                 end
             end
         end
     end
     return entities
 end
+local get_closest_player = function()
+    local closest, closest_distance = nil, math.huge;
+    local character = players.LocalPlayer.Character;
 
-local function get_closest_player()
-    local closest, closest_distance = nil, fovRadius
-    local character = players.LocalPlayer.Character
-    if not character then return end
-
-    for _, player in ipairs(get_players()) do
-        if player == players.LocalPlayer then continue end
-        if not player:FindFirstChild("HumanoidRootPart") or not player:FindFirstChild("Head") then continue end
-
-        local position, onScreen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position)
-        if not onScreen then continue end
-
-        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude
-
-        if distance < closest_distance then
-            closest = player
-            closest_distance = distance
-        end
+    if (character == nil) then
+        return;
     end
-    return closest
+
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then
+            continue;
+        end
+
+        if (not player:FindFirstChild("HumanoidRootPart")) then
+            continue;
+        end
+
+        local position, on_screen = camera.WorldToViewportPoint(camera, player.HumanoidRootPart.Position);
+
+        if (on_screen == false) then
+            continue;
+        end
+
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
+        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
+
+        if (distance > closest_distance) then
+            continue;
+        end
+
+        closest = player;
+        closest_distance = distance;
+    end
+    return closest;
 end
 
-local old = utility.Raycast
-utility.Raycast = function(...)
-    local arguments = {...}
-    if aimbotEnabled and #arguments > 0 and arguments[4] == 999 then
-        local closest = get_closest_player()
-        if closest then
-            arguments[3] = closest.Head.Position
+local old = utility.Raycast; utility.Raycast = function(...)
+    local arguments = {...};
+
+    if (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+
+        if (closest) then
+            arguments[3] = closest.Head.Position;
         end
     end
-    return old(table.unpack(arguments))
+    return old(table.unpack(arguments));
 end
-
-RunService.RenderStepped:Connect(function()
-    local screenSize = camera.ViewportSize
-    fovCircle.Position = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-    fovCircle.Radius = fovRadius
-end)
-
--- === GUI Tabs ===
-local aimTab = Window:MakeTab({ Name = "Main", Icon = "", PremiumOnly = false })
-
-aimTab:AddToggle({
-    Name = "Silent Aim",
-    Default = false,
-    Callback = function(value)
-        aimbotEnabled = value
-    end
-})
-
-aimTab:AddSlider({
-    Name = "Range",
-    Min = 50,
-    Max = 700,
-    Default = 100,
-    Color = Color3.fromRGB(200,200,30),
-    Increment = 10,
-    Callback = function(value)
-        fovRadius = value
-    end
-})
-
-aimTab:AddToggle({
-    Name = "Silent Aim Range",
-    Default = false,
-    Callback = function(value)
-        fovCircle.Visible = value
-    end
-})
-
--- === Auto Aim ===
-local fov = 100
-local maxDistance = 50
-local maxTransparency = 0.1
-local teamCheck = false
-local aimStrength = 1
-
-local Cam = workspace.CurrentCamera
-local FOVring = Drawing.new("Circle")
-
-FOVring.Visible = true
-FOVring.Thickness = 2
-FOVring.Color = Color3.fromRGB(128, 0, 128)
-FOVring.Filled = false
-FOVring.Radius = fov
-FOVring.Position = Cam.ViewportSize / 2
-
-local function updateDrawings()
-    FOVring.Position = Cam.ViewportSize / 2
-end
-
-local function lookAt(target)
-    local currentLook = Cam.CFrame.LookVector
-    local newLook = (target - Cam.CFrame.Position).unit
-    local blendFactor = math.clamp(aimStrength / 5, 0.1, 1)
-    local blendedLook = currentLook:Lerp(newLook, blendFactor)
-    Cam.CFrame = CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + blendedLook)
-end
-
-local function calculateTransparency(distance)
-    return (1 - (distance / fov)) * maxTransparency
-end
-
-local function isPlayerAlive(player)
-    local character = player.Character
-    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
-end
-
-local function getClosestPlayerInFOV(trg_part)
-    local nearest, last = nil, math.huge
-    local playerMousePos = Cam.ViewportSize / 2
-    local localPlayer = Players.LocalPlayer
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer and (not teamCheck or player.Team ~= localPlayer.Team) and isPlayerAlive(player) then
-            local part = player.Character and player.Character:FindFirstChild(trg_part)
-            if part then
-                local ePos, isVisible = Cam:WorldToViewportPoint(part.Position)
-                local distance = (Vector2.new(ePos.X, ePos.Y) - playerMousePos).Magnitude
-                if distance < last and isVisible and distance < fov and distance < maxDistance then
-                    last = distance
-                    nearest = player
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-aimTab:AddToggle({
-    Name = "Auto Aim",
-    Default = false,
-    Callback = function(state)
-        if state then
-            RunService:BindToRenderStep("AutoAim", Enum.RenderPriority.Camera.Value, function()
-                updateDrawings()
-                local closest = getClosestPlayerInFOV("Head")
-                if closest and closest.Character and closest.Character:FindFirstChild("Head") then
-                    lookAt(closest.Character.Head.Position)
-                end
-                if closest then
-                    local ePos, isVisible = Cam:WorldToViewportPoint(closest.Character.Head.Position)
-                    local distance = (Vector2.new(ePos.X, ePos.Y) - (Cam.ViewportSize / 2)).Magnitude
-                    FOVring.Transparency = calculateTransparency(distance)
-                else
-                    FOVring.Transparency = maxTransparency
-                end
-            end)
-        else
-            RunService:UnbindFromRenderStep("AutoAim")
-            FOVring.Transparency = maxTransparency
-        end
-    end
-})
-
-aimTab:AddSlider({
-    Name = "Aim Strength",
-    Min = 0,
-    Max = 5,
-    Default = 1,
-    Color = Color3.fromRGB(200,200,30),
-    Increment = 0.5,
-    Callback = function(value)
-        aimStrength = value
-    end
-})
-
--- === ESP Tab ===
-local espTab = Window:MakeTab({ Name = "ESP", Icon = "", PremiumOnly = false })
-
-local highlightInstances = {}
-local rainbowActive = false
-
-espTab:AddToggle({
-    Name = "Highlights",
-    Default = false,
-    Callback = function(value)
-        rainbowActive = value
-
-        if rainbowActive then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Players.LocalPlayer and player.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Parent = player.Character
-                    highlight.FillTransparency = 0.5
-                    highlight.OutlineTransparency = 1
-                    highlightInstances[player] = highlight
-                end
-            end
-
-            Players.PlayerAdded:Connect(function(player)
-                player.CharacterAdded:Connect(function()
-                    if rainbowActive then
-                        local highlight = Instance.new("Highlight")
-                        highlight.Parent = player.Character
-                        highlight.FillTransparency = 0.5
-                        highlight.OutlineTransparency = 1
-                        highlightInstances[player] = highlight
-                    end
-                end)
-            end)
-
-            spawn(function()
-                local hue = 0
-                while rainbowActive do
-                    hue = (hue + 0.02) % 1
-                    local color = Color3.fromHSV(hue, 1, 1)
-                    for _, highlight in pairs(highlightInstances) do
-                        if highlight then
-                            highlight.FillColor = color
-                            highlight.OutlineColor = color
-                        end
-                    end
-                    task.wait(0.02)
-                end
-            end)
-
-        else
-            for _, highlight in pairs(highlightInstances) do
-                if highlight then
-                    highlight:Destroy()
-                end
-            end
-            highlightInstances = {}
-        end
-    end
-})
-
-local espEnabled = false
-local espConnections = {}
-
-espTab:AddToggle({
-    Name = "ESP (Icon)",
-    Default = false,
-    Callback = function(state)
-        espEnabled = state
-
-        if espEnabled then
-            espConnections.RenderStepped = RunService.RenderStepped:Connect(function()
-                for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        if not player.Character:FindFirstChild("ESPBillboard") then
-                            local billboardGui = Instance.new("BillboardGui")
-                            billboardGui.Name = "ESPBillboard"
-                            billboardGui.Size = UDim2.new(0, 50, 0, 60)
-                            billboardGui.AlwaysOnTop = true
-                            billboardGui.Adornee = player.Character:FindFirstChild("HumanoidRootPart")
-                            billboardGui.StudsOffset = Vector3.new(0, 5, 0)
-
-                            local frame = Instance.new("Frame", billboardGui)
-                            frame.Size = UDim2.new(1, 0, 1, 0)
-                            frame.BackgroundTransparency = 1
-
-                            local imageLabel = Instance.new("ImageLabel", frame)
-                            imageLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                            imageLabel.Position = UDim2.new(0, 0, 0, 0)
-                            imageLabel.BackgroundTransparency = 1
-                            imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150"
-
-                            local textLabel = Instance.new("TextLabel", frame)
-                            textLabel.Size = UDim2.new(0.8, 0, 0.25, 0)
-                            textLabel.Position = UDim2.new(0.1, 0, 0.5, 0)
-                            textLabel.BackgroundTransparency = 1
-                            textLabel.Text = player.DisplayName
-                            textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                            textLabel.TextScaled = true
-                            textLabel.Font = Enum.Font.SourceSansBold
-                            textLabel.TextWrapped = true
-                            textLabel.TextSize = 10
-
-                            billboardGui.Parent = player.Character
-                        end
-                    end
-                end
-            end)
-        else
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Character and player.Character:FindFirstChild("ESPBillboard") then
-                    player.Character.ESPBillboard:Destroy()
-                end
-            end
-
-            if espConnections.RenderStepped then
-                espConnections.RenderStepped:Disconnect()
-                espConnections.RenderStepped = nil
-            end
-        end
-    end
-})
-
-Players.PlayerRemoving:Connect(function(player)
-    if player.Character and player.Character:FindFirstChild("ESPBillboard") then
-        player.Character.ESPBillboard:Destroy()
-    end
-end)
-
-local settings = { enabled = false }
-local espObjects = {}
-local espConnections = {}
-
-function esp(player)
-    if not settings.enabled then return end
-    if player == Players.LocalPlayer then return end
-
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-
-    local espColor = Color3.new(1, 1, 1)
-
-    local Box = Drawing.new("Square")
-    Box.Color = espColor
-    Box.Thickness = 2
-    Box.Transparency = 1
-    Box.Filled = false
-
-    local tracer = Drawing.new("Line")
-    tracer.Color = espColor
-    tracer.Thickness = 1
-    tracer.Transparency = 1
-
-    local name = Drawing.new("Text")
-    name.Text = player.Name
-    name.Color = espColor
-    name.Size = 20
-    name.Center = true
-    name.Outline = true
-    name.Transparency = 1
-
-    espObjects[player] = {box = Box, tracer = tracer, name = name}
-
-    if espConnections[player] then
-        espConnections[player]:Disconnect()
-    end
-
-    espConnections[player] = RunService.RenderStepped:Connect(function()
-        if not settings.enabled or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            Box.Visible = false
-            tracer.Visible = false
-            name.Visible = false
-            return
-        end
-
-        local hrpPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position)
-        if onScreen then
-            local top = workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(0, 3, 0))
-            local bottom = workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position - Vector3.new(0, 3, 0))
-            local size = Vector2.new(math.abs(top.X - bottom.X) * 1.5, math.abs(top.Y - bottom.Y) * 1.5)
-            Box.Size = size
-            Box.Position = Vector2.new(hrpPosition.X - size.X / 2, hrpPosition.Y - size.Y / 2)
-            Box.Visible = true
-
-            tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-            tracer.To = Vector2.new(hrpPosition.X, hrpPosition.Y)
-            tracer.Visible = true
-
-            name.Position = Vector2.new(hrpPosition.X, hrpPosition.Y - size.Y / 2 - 20)
-            name.Visible = true
-        else
-            Box.Visible = false
-            tracer.Visible = false
-            name.Visible = false
-        end
-    end)
-end
-
-function remove(player)
-    if espObjects[player] then
-        espObjects[player].box:Remove()
-        espObjects[player].tracer:Remove()
-        espObjects[player].name:Remove()
-        espObjects[player] = nil
-    end
-
-    if espConnections[player] then
-        espConnections[player]:Disconnect()
-        espConnections[player] = nil
-    end
-end
-
-function add(player)
-    player.CharacterAdded:Connect(function(character)
-        if settings.enabled then
-            esp(player)
-        end
-    end)
-    player.CharacterRemoving:Connect(function(character)
-        remove(player)
-    end)
-    if player.Character and settings.enabled then
-        esp(player)
-    end
-end
-
-Players.PlayerAdded:Connect(add)
-for _, player in pairs(Players:GetPlayers()) do
-    add(player)
-end
-
-espTab:AddToggle({
-    Name = "ESP (Line & Box)",
-    Default = false,
-    Callback = function(state)
-        settings.enabled = state
-
-        if not state then
-            for _, player in pairs(Players:GetPlayers()) do
-                remove(player)
-            end
-        else
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Character then
-                    esp(player)
-                end
-            end
-        end
-    end
-})
-
--- === Player Tab ===
-local playerTab = Window:MakeTab({ Name = "Player", Icon = "", PremiumOnly = false })
-
-local ToggleActive = false  
-local HackedWalkSpeed = 50
-
-local Toggle = playerTab:AddToggle({
-    Name = "Walk speed",
-    Default = false,
-    Callback = function(state)
-        ToggleActive = state
-    end
-})
-
-playerTab:AddSlider({
-    Name = "speed",
-    Min = 50,
-    Max = 200,
-    Default = 50,
-    Color = Color3.fromRGB(200,200,30),
-    Increment = 10,
-    Callback = function(speed)
-        HackedWalkSpeed = speed
-
-        local Plrs = game:GetService("Players")
-        local MyPlr = Plrs.LocalPlayer
-        
-        local function setWalkSpeed(Humanoid)
-            if ToggleActive then 
-                Humanoid.WalkSpeed = HackedWalkSpeed
-            end
-        end
-
-        local function updateCharacter(Char)
-            local Humanoid = Char:WaitForChild("Humanoid")
-            setWalkSpeed(Humanoid)
-
-            while true do
-                task.wait() 
-                if not ToggleActive then break end  
-                setWalkSpeed(Humanoid) 
-            end
-
-            Humanoid.Changed:Connect(setWalkSpeed)
-        end
-
-        if MyPlr.Character then
-            updateCharacter(MyPlr.Character)
-        end
-        
-        MyPlr.CharacterAdded:Connect(updateCharacter)
-    end
-})
-
-local ToggleActiveJump = false
-local HackedJumpPower = 50
-
-local ToggleJump = playerTab:AddToggle({
-    Name = "Jump power",
-    Default = false,
-    Callback = function(state)
-        ToggleActiveJump = state
-    end
-})
-
-playerTab:AddSlider({
-    Name = "power",
-    Min = 50,
-    Max = 100,
-    Default = 50,
-    Color = Color3.fromRGB(200,200,30),
-    Increment = 10,
-    Callback = function(jumpPower)
-        HackedJumpPower = jumpPower
-
-        local Plrs = game:GetService("Players")
-        local MyPlr = Plrs.LocalPlayer
-        
-        local function setJumpPower(Humanoid)
-            if ToggleActiveJump then 
-                Humanoid.JumpPower = HackedJumpPower
-            end
-        end
-
-        local function updateCharacter(Char)
-            local Humanoid = Char:WaitForChild("Humanoid")
-            setJumpPower(Humanoid)
-
-            while true do
-                task.wait(0) 
-                if not ToggleActiveJump then break end  
-                setJumpPower(Humanoid) 
-            end
-
-            Humanoid.Changed:Connect(setJumpPower)
-        end
-
-        if MyPlr.Character then
-            updateCharacter(MyPlr.Character)
-        end
-        
-        MyPlr.CharacterAdded:Connect(updateCharacter)
-    end
-})
-
-local InfiniteJumpEnabled = false
-
-playerTab:AddToggle({
-    Name = "Infinite jump",
-    Default = false,
-    Callback = function(Value)
-        InfiniteJumpEnabled = Value
-    end
-})
-
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if InfiniteJumpEnabled then
-        local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:ChangeState("Jumping")
-        end
-    end
-end)
-
-local Plr = Players.LocalPlayer
-local Clipon = false
-local SteppedConnection
-
-playerTab:AddToggle({
-    Name = "Noclip",
-    Default = false,
-    Callback = function(value)
-        Clipon = value
-        if Clipon then
-            SteppedConnection = RunService.Stepped:Connect(function()
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if obj.Name == Plr.Name then
-                        for _, part in pairs(obj:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                            end
-                        end
-                    end
-                end
-            end)
-        else
-            if SteppedConnection then
-                SteppedConnection:Disconnect()
-                SteppedConnection = nil
-            end
-        end
-    end
-})
-
--- === Teleport Tab ===
-local teleporting = false
-
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-
-    if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
-
-    local myPosition = localPlayer.Character.HumanoidRootPart.Position
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local distance = (myPosition - player.Character.HumanoidRootPart.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestPlayer = player
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
-local function startTeleportLoop()
-    teleporting = true
-
-    while teleporting do
-        local targetPlayer = getClosestPlayer()
-
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            localPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
-        end
-
-        task.wait()
-    end
-end
-
-local function stopTeleport()
-    teleporting = false
-end
-
-local teleportTab = Window:MakeTab({ Name = "Teleport", Icon = "", PremiumOnly = false })
-
-teleportTab:AddToggle({
-    Name = "Teleport to player",
-    Default = false,
-    Callback = function(value)
-        if value then
-            startTeleportLoop()
-        else
-            stopTeleport()
-        end
-    end
-})
-
--- === Final Init ===
-OrionLib:Init()
